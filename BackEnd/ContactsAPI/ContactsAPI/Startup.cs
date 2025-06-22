@@ -1,16 +1,17 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Data;
+using Data.Seed;
+using Infrastructure.Interface;
+using Infrastructure.Repository;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Service.Interface;
+using Service.Services;
 
 namespace ContactsAPI
 {
@@ -43,6 +44,22 @@ namespace ContactsAPI
                     },
                 });
             });
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowSpecificOrigin",
+                    builder => builder
+                        .AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+            });
+
+            services.AddDbContext<ApplicationDbContext>(options =>
+                    options.UseInMemoryDatabase("InMemoryContactDb"));
+
+            services.AddScoped<IContactRepository, ContactRepository>();
+            services.AddScoped<IContactService, ContactService>();
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -65,6 +82,8 @@ namespace ContactsAPI
                 c.RoutePrefix = string.Empty;
             });
 
+            app.UseCors("AllowSpecificOrigin");
+
             app.UseHttpsRedirection();
 
             app.UseRouting();
@@ -75,6 +94,19 @@ namespace ContactsAPI
             {
                 endpoints.MapControllers();
             });
+
+            var scope = app.ApplicationServices.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+           
+            // insert default 1000 contact records
+            try
+            {
+                 DbInitializer.Initialize(context);
+            }
+            catch (Exception ex)
+            {
+                // logger.LogError(ex, "A problem occurred during migration");
+            }
         }
     }
 }
