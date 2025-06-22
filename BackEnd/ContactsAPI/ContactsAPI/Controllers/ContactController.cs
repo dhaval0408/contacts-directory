@@ -1,46 +1,62 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Domain.Entities;
+using Domain.ViewModels;
 using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Service.Interface;
 
 namespace ContactsAPI.Controllers
 {
     [Route("api/[controller]")]
+    [ApiController]
     public class ContactController : Controller
     {
-        // GET: api/<controller>
-        [HttpGet]
-        public IEnumerable<string> Get()
-        {
-            return new string[] { "value1", "value2" };
-        }
+        private readonly IContactService _service;
 
-        // GET api/<controller>/5
+        public ContactController(IContactService service)
+        {
+            _service = service;
+        }
+       
         [HttpGet("{id}")]
-        public string Get(int id)
+        public async Task<IActionResult> Get(int id)
         {
-            return "value";
+            var contact = await _service.GetByIdAsync(id);
+            return contact is null ? NotFound() : Ok(contact);
         }
 
-        // POST api/<controller>
         [HttpPost]
-        public void Post([FromBody]string value)
+        public async Task<IActionResult> Post(Contact contact)
         {
+            await _service.AddAsync(contact);
+            return CreatedAtAction(nameof(Get), new { id = contact.Id }, contact);
         }
 
-        // PUT api/<controller>/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody]string value)
+        public async Task<IActionResult> Put(int id, Contact contact)
         {
+            if (id != contact.Id) return BadRequest();
+            await _service.UpdateAsync(contact);
+            return NoContent();
         }
 
-        // DELETE api/<controller>/5
+
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
+            await _service.DeleteAsync(id);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// This API will be use for search, sort and pagination
+        /// passing all parameters like search, sort and page into request body
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("search")]
+        public async Task<IActionResult> Get([FromBody] BaseSearch request)
+        {
+            return Ok(await _service.GetAllAsync(request));
         }
     }
 }
